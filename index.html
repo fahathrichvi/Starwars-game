@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>STAR WARS: Hyperspace Assault</title>
+<meta name="author" content="Fahath Richvi">
+<meta name="copyright" content="© 2026 Fahath Richvi. All rights reserved.">
+<!-- STAR WARS: Hyperspace Assault — developed by Fahath Richvi. © 2026 Fahath Richvi. All rights reserved. See LICENSE. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=News+Cycle:wght@400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div id="game-container"></div>
+<canvas id="hud-canvas"></canvas>
+<div id="damage-flash"></div>
+<div id="vignette"></div>
+
+<!-- ===================== IN-GAME HUD ===================== -->
+<div id="hud" class="hidden">
+  <div id="hud-mission">
+    <div id="hud-mission-title">MISSION</div>
+    <ul id="hud-objectives"></ul>
+  </div>
+
+  <div id="hud-score">
+    <div><span class="lbl">SCORE</span> <span id="hud-score-val">0</span></div>
+    <div><span class="lbl">KILLS</span> <span id="hud-kills-val">0</span></div>
+    <div><span class="lbl">TIME</span> <span id="hud-time-val">0:00</span></div>
+  </div>
+
+  <div id="hud-comms"></div>
+
+  <div id="hud-status">
+    <div class="bar-row"><span class="lbl">SHIELDS</span><div class="bar"><div id="bar-shield" class="fill shield"></div></div></div>
+    <div class="bar-row"><span class="lbl">HULL</span><div class="bar"><div id="bar-hull" class="fill hull"></div></div></div>
+    <div class="bar-row"><span class="lbl">LASERS</span><div class="bar"><div id="bar-heat" class="fill heat"></div></div></div>
+    <div class="bar-row"><span class="lbl">BOOST</span><div class="bar"><div id="bar-boost" class="fill boost"></div></div></div>
+    <div class="bar-row"><span class="lbl">THROTTLE</span><div class="bar"><div id="bar-throttle" class="fill throttle"></div></div></div>
+    <div id="hud-speed">SPD <span id="hud-speed-val">0</span></div>
+  </div>
+
+  <div id="hud-target">
+    <div class="lbl">TARGET</div>
+    <div id="hud-target-name">— NONE —</div>
+    <div id="hud-target-dist"></div>
+    <div class="bar"><div id="bar-target" class="fill hull"></div></div>
+    <div id="hud-torps">PROTON TORPEDOES: <span id="hud-torps-val">0</span></div>
+    <div id="hud-lock"></div>
+  </div>
+
+  <div id="hud-center-msg"></div>
+  <div id="hud-sub-msg"></div>
+</div>
+
+<!-- ===================== TITLE ===================== -->
+<div id="screen-title" class="screen">
+  <div class="stars-bg"></div>
+  <div class="title-wrap">
+    <div class="logo">
+      <div class="logo-main">STAR<br>WARS</div>
+      <div class="logo-sub">HYPERSPACE ASSAULT</div>
+    </div>
+    <div class="menu" id="main-menu">
+      <button class="btn" data-action="campaign">START CAMPAIGN</button>
+      <button class="btn" data-action="select">SELECT MISSION</button>
+      <button class="btn" data-action="controls">FLIGHT MANUAL</button>
+      <button class="btn" data-action="settings">SETTINGS</button>
+    </div>
+    <div class="menu hidden" id="mission-menu"></div>
+    <div class="panel hidden" id="controls-panel">
+      <h2>FLIGHT MANUAL</h2>
+      <table class="controls">
+        <tr><td>Mouse</td><td>Steer (pitch &amp; yaw) — click the screen to lock the cursor</td></tr>
+        <tr><td>Left Click / Space</td><td>Fire laser cannons</td></tr>
+        <tr><td>Right Click / F</td><td>Fire proton torpedo (needs target lock)</td></tr>
+        <tr><td>W / S</td><td>Throttle up / down</td></tr>
+        <tr><td>A / D</td><td>Roll left / right</td></tr>
+        <tr><td>Arrow keys</td><td>Keyboard pitch &amp; yaw</td></tr>
+        <tr><td>Shift</td><td>Engine boost</td></tr>
+        <tr><td>T / R</td><td>Target nearest enemy / target enemy ahead</td></tr>
+        <tr><td>E / Q</td><td>Next / previous target</td></tr>
+        <tr><td>C</td><td>Toggle cockpit / chase camera</td></tr>
+        <tr><td>X</td><td>Center flight stick</td></tr>
+        <tr><td>M / N</td><td>Mute all / toggle music</td></tr>
+        <tr><td>P / Esc</td><td>Pause</td></tr>
+      </table>
+      <p class="tip">Keep your target in the reticle to lock on. Aim at the <b>lead circle</b> to hit fast movers. Lasers overheat — fire in bursts. Shields recharge if you avoid taking hits.</p>
+      <button class="btn small" data-action="back">BACK</button>
+    </div>
+    <div class="panel hidden" id="settings-panel">
+      <h2>SETTINGS</h2>
+      <div class="setting"><label>Mouse sensitivity</label><input type="range" id="set-sens" min="0.3" max="2.5" step="0.1" value="1"></div>
+      <div class="setting"><label>Master volume</label><input type="range" id="set-vol" min="0" max="1" step="0.05" value="0.8"></div>
+      <div class="setting"><label>Invert pitch</label><input type="checkbox" id="set-invert"></div>
+      <div class="setting"><label>Bloom &amp; glow effects</label><input type="checkbox" id="set-bloom" checked></div>
+      <div class="setting"><label>Difficulty</label>
+        <select id="set-diff"><option value="0">Cadet</option><option value="1" selected>Pilot</option><option value="2">Ace</option></select>
+      </div>
+      <button class="btn small" data-action="back">BACK</button>
+    </div>
+    <div class="dev-credit">Developed by <span>Fahath Richvi</span></div>
+    <div class="footer">© 2026 Fahath Richvi. All rights reserved. • A fan-made tribute game • Not affiliated with Lucasfilm or Disney</div>
+  </div>
+</div>
+
+<!-- ===================== OPENING CRAWL ===================== -->
+<div id="screen-crawl" class="screen hidden">
+  <div id="crawl-intro">A long time ago in a galaxy far,<br>far away....</div>
+  <div id="crawl-logo">STAR<br>WARS</div>
+  <div id="crawl-viewport">
+    <div id="crawl-text">
+      <p class="episode">EPISODE IV½</p>
+      <p class="ep-title">HYPERSPACE ASSAULT</p>
+      <p>The galaxy burns. The GALACTIC EMPIRE has tightened its grip on the Outer Rim, hunting down every Rebel supply line with fleets of TIE fighters and the dreaded STAR DESTROYERS.</p>
+      <p>Hidden among the asteroid fields of the Kessra system, a small band of Rebel pilots known as RED SQUADRON prepares a daring counter-strike.</p>
+      <p>Their mission: break the Imperial blockade, cripple the Star Destroyer <i>Dominion</i>, and give the Rebellion the hope it so desperately needs....</p>
+      <p class="episode">A game by Fahath Richvi</p>
+    </div>
+  </div>
+  <div class="skip-hint">Click or press SPACE to skip</div>
+</div>
+
+<!-- ===================== BRIEFING ===================== -->
+<div id="screen-briefing" class="screen hidden">
+  <div class="briefing-box">
+    <div class="briefing-header">REBEL ALLIANCE • MISSION BRIEFING</div>
+    <h1 id="brief-title"></h1>
+    <h3 id="brief-sub"></h3>
+    <p id="brief-text"></p>
+    <div class="brief-obj-h">OBJECTIVES</div>
+    <ul id="brief-objectives"></ul>
+    <div class="brief-btns">
+      <button class="btn" id="btn-launch">LAUNCH ▶</button>
+      <button class="btn small" id="btn-brief-back">MENU</button>
+    </div>
+    <div class="tip">Press ENTER to launch</div>
+  </div>
+</div>
+
+<!-- ===================== PAUSE ===================== -->
+<div id="screen-pause" class="screen hidden dim">
+  <div class="panel">
+    <h2>PAUSED</h2>
+    <button class="btn" id="btn-resume">RESUME</button>
+    <button class="btn" id="btn-restart">RESTART MISSION</button>
+    <button class="btn" id="btn-quit">ABORT TO MENU</button>
+  </div>
+</div>
+
+<!-- ===================== RESULT ===================== -->
+<div id="screen-result" class="screen hidden dim">
+  <div class="panel result">
+    <h1 id="result-title">MISSION COMPLETE</h1>
+    <p id="result-text"></p>
+    <table id="result-stats"></table>
+    <div class="brief-btns">
+      <button class="btn" id="btn-next">NEXT MISSION</button>
+      <button class="btn" id="btn-retry">RETRY</button>
+      <button class="btn small" id="btn-menu">MENU</button>
+    </div>
+  </div>
+</div>
+
+<div id="loading" class="screen"><div class="load-text">PREPARING HYPERDRIVE…</div></div>
+
+<!-- Three.js r147 (vendored for offline play) -->
+<script src="js/lib/three.min.js"></script>
+<script src="js/lib/CopyShader.js"></script>
+<script src="js/lib/LuminosityHighPassShader.js"></script>
+<script src="js/lib/GammaCorrectionShader.js"></script>
+<script src="js/lib/Pass.js"></script>
+<script src="js/lib/MaskPass.js"></script>
+<script src="js/lib/ShaderPass.js"></script>
+<script src="js/lib/EffectComposer.js"></script>
+<script src="js/lib/RenderPass.js"></script>
+<script src="js/lib/UnrealBloomPass.js"></script>
+
+<!-- Game -->
+<script src="js/core.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/textures.js"></script>
+<script src="js/models.js"></script>
+<script src="js/world.js"></script>
+<script src="js/effects.js"></script>
+<script src="js/entities.js"></script>
+<script src="js/capital.js"></script>
+<script src="js/hud.js"></script>
+<script src="js/missions.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>

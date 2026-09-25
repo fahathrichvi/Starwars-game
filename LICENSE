@@ -1,0 +1,41 @@
+Copyright (c) 2026 Fahath Richvi. All rights reserved.
+
+STAR WARS: Hyperspace Assault
+Developed by Fahath Richvi
+
+This software and its source code, including the game code, markup, styles,
+procedurally generated artwork, synthesized audio and music, mission text,
+and documentation (together, "the Software"), are the exclusive property of
+Fahath Richvi.
+
+No part of the Software may be copied, modified, merged, published,
+distributed, sublicensed, sold, or used to create derivative works, in whole
+or in part, without the prior written permission of Fahath Richvi.
+
+Permission is granted to download and play the Software for personal,
+non-commercial use only.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM, OUT
+OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+
+For permissions, contact: Fahath Richvi
+
+--------------------------------------------------------------------------------
+THIRD-PARTY NOTICES
+--------------------------------------------------------------------------------
+
+1. Three.js (files in js/lib/) is Copyright (c) 2010-2022 three.js authors and
+   is used under the MIT License. It is not covered by the copyright above.
+   The MIT License text is available at https://github.com/mrdoob/three.js/blob/dev/LICENSE
+
+2. "Star Wars" and related names, characters, and ship designs (X-wing,
+   TIE fighter, Star Destroyer, etc.) are trademarks of Lucasfilm Ltd. / Disney.
+   This is an unofficial, non-commercial fan tribute. It is not affiliated
+   with, endorsed by, or sponsored by Lucasfilm Ltd. or Disney, and no claim
+   is made to those trademarks.
+
+3. Fonts (Orbitron, Share Tech Mono, News Cycle) are loaded from Google Fonts
+   and are licensed under the SIL Open Font License by their respective authors.
