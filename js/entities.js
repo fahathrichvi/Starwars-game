@@ -31,6 +31,11 @@
       hp: 45, shield: 0, min: 50, cruise: 108, max: 142, turn: 1.9, accel: 60,
       fireInterval: 0.3, damage: 5, boltSpeed: 640, laser: 'empire', score: 150,
     },
+    advanced: {
+      name: 'TIE ADVANCED', build: () => SW.Models.createTIEAdvanced(),
+      hp: 900, shield: 350, min: 50, cruise: 118, max: 140, turn: 2.1, accel: 70,
+      fireInterval: 0.2, damage: 7, boltSpeed: 700, laser: 'empire', score: 5000,
+    },
   };
 
   /* ============================== SHIP ============================== */
@@ -52,6 +57,8 @@
       this.name = opts.name || this.spec.name;
       this.isPlayer = !!opts.player;
       this.isWingman = !!opts.wingman;
+      this.isBoss = !!opts.boss;
+      this.fireMul = 1;
       this.kind = 'fighter';
       this.velocity = new THREE.Vector3();
       this.prevPos = new THREE.Vector3();
@@ -185,10 +192,10 @@
 
       if (canFire && this.fireTimer <= 0) {
         this.fire(null, (1 - ai.skill) * 0.03 + 0.008);
-        if (this.burst > 0) { this.burst--; this.fireTimer = spec.fireInterval * 0.5; }
+        if (this.burst > 0) { this.burst--; this.fireTimer = spec.fireInterval * 0.5 * this.fireMul; }
         else {
           this.burst = this.team === 'empire' ? Math.floor(rand(1, 4)) : Math.floor(rand(2, 5));
-          this.fireTimer = spec.fireInterval * rand(1.2, 2.4) * (this.team === 'empire' ? g.enemyFireMul : 1);
+          this.fireTimer = spec.fireInterval * rand(1.2, 2.4) * this.fireMul * (this.team === 'empire' ? g.enemyFireMul : 1);
         }
       }
     }
@@ -214,6 +221,7 @@
     takeDamage(amount, source, hitPos) {
       if (!this.alive) return;
       const g = this.game;
+      if (this.isBoss && this.invulnerable) { if (hitPos) g.fx.sparks(hitPos, 'blue', 6, 30); return; }
       this.lastHit = g.time;
       if (this.isPlayer) amount *= g.playerDamageMul;
       let shieldHit = false;
@@ -226,8 +234,9 @@
       if (hitPos) g.fx.sparks(hitPos, shieldHit ? 'blue' : null, shieldHit ? 6 : 12, 30);
       if (source && source.isPlayer && !this.isPlayer) g.stats.hits++;
       if (this.isPlayer) g.onPlayerHit(shieldHit, source);
+      if (this.isBoss) g.onBossDamaged(this);
       if (this.hp <= 0) { this.destroy(source); return; }
-      if (!this.isPlayer && this.ai.state !== 'evade' && Math.random() < 0.35) {
+      if (!this.isPlayer && this.ai.state !== 'evade' && Math.random() < (this.isBoss ? 0.2 : 0.35)) {
         this.ai.state = 'evade';
         this.ai.timer = rand(0.8, 1.8);
         randomUnit(this.ai.evadeDir).addScaledVector(this.fwd, 0.5).normalize();
@@ -239,7 +248,7 @@
       if (!this.alive) return;
       this.alive = false;
       const g = this.game;
-      const scale = this.type === 'xwing' ? 1.6 : 1.3;
+      const scale = this.isBoss ? 3.5 : this.type === 'xwing' ? 1.6 : 1.3;
       g.fx.explosion(this.pos, scale, { velocity: _t.copy(this.velocity).multiplyScalar(0.4) });
       g.sound3D('explosion', this.pos, scale);
       g.breakApart(this);
@@ -404,8 +413,8 @@
         empire: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 8, 1.2), toneMapped: false }),
       };
       this.glowMat = {
-        rebel: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.08, 0.04), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
-        empire: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 1.2, 0.15), transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+        rebel: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.2, 0.08, 0.04), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
+        empire: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.1, 1.2, 0.15), transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }),
       };
       this.zAxis = new THREE.Vector3(0, 0, 1);
     }
@@ -457,13 +466,13 @@
         for (let j = 0; j < targets.length; j++) {
           const t = targets[j];
           if (!t.alive || t === b.owner) continue;
-          if (SW.util.segmentSphere(b.prev, P, t.pos, t.radius)) {
+          if (t.hitTest ? t.hitTest(b.prev, P, 0) : SW.util.segmentSphere(b.prev, P, t.pos, t.radius)) {
             t.takeDamage(b.damage, b.owner, P);
             hit = true;
             break;
           }
         }
-        if (!hit && g.capital && g.capital.hitsHull(P, 0)) {
+        if (!hit && g.hullHit(P)) {
           g.fx.sparks(P, b.team === 'rebel' ? 'red' : 'green', 8, 25);
           g.sound3D('spark', P);
           hit = true;
@@ -472,6 +481,7 @@
           for (const a of g.world.asteroids) {
             if (P.distanceToSquared(a.position) < a.userData.radius * a.userData.radius) {
               g.fx.sparks(P, null, 8, 20);
+              if (b.owner && b.owner.isPlayer && g.world.damageAsteroid(a, b.damage, g.fx)) g.sound3D('explosion', P, 0.6);
               hit = true; break;
             }
           }
@@ -500,7 +510,7 @@
       s.position.copy(ship.pos).addScaledVector(ship.fwd, 6).add(_t.set(0, -1, 0).applyQuaternion(ship.obj.quaternion));
       this.game.scene.add(s);
       this.list.push({
-        sprite: s, dir: ship.fwd.clone(), speed: ship.speed + 40, target, life: 7, owner: ship, team: ship.team,
+        sprite: s, dir: ship.fwd.clone(), speed: ship.speed + 40, target, life: 7, owner: ship, team: ship.team, prev: s.position.clone(),
       });
       if (!target) this.game.hud.flashSub('DUMB-FIRE — NO LOCK', 1);
     }
@@ -516,6 +526,7 @@
           _d.subVectors(T.pos, t.sprite.position).normalize();
           t.dir.lerp(_d, Math.min(1, 3.2 * dt)).normalize();
         }
+        t.prev.copy(t.sprite.position);
         t.sprite.position.addScaledVector(t.dir, t.speed * dt);
         t.sprite.scale.setScalar(3 + Math.random() * 1.2);
         g.fx.torpedoTrail(t.sprite.position);
@@ -523,9 +534,16 @@
         const P = t.sprite.position;
         const targets = g.getTargets(t.team === 'rebel' ? 'empire' : 'rebel');
         for (const x of targets) {
-          if (x.alive && P.distanceTo(x.pos) < x.radius + 3) { x.takeDamage(160, t.owner, P); boom = true; break; }
+          if (!x.alive) continue;
+          const touch = x.hitTest ? x.hitTest(t.prev, P, 3) : SW.util.segmentSphere(t.prev, P, x.pos, x.radius + 3);
+          if (touch) { x.takeDamage(160, t.owner, P, 'torpedo'); boom = true; break; }
         }
-        if (!boom && g.capital && g.capital.hitsHull(P, 0)) boom = true;
+        if (!boom && g.hullHit(P)) boom = true;
+        if (!boom) {
+          for (const a of g.world.asteroids) {
+            if (P.distanceToSquared(a.position) < a.userData.radius * a.userData.radius) { g.world.damageAsteroid(a, 200, g.fx); boom = true; break; }
+          }
+        }
         if (boom || t.life <= 0) {
           g.fx.explosion(P, boom ? 1.4 : 0.8, { debris: 2 });
           g.sound3D('explosion', P, 1);
@@ -538,7 +556,126 @@
     clear() { this.list.forEach((t) => this.game.scene.remove(t.sprite)); this.list = []; }
   }
 
+  /* ============================== TRANSPORTS & FREIGHTERS ============================== */
+  class Transport {
+    constructor(game, variant, pos, dest, name, opts = {}) {
+      this.game = game;
+      this.variant = variant;
+      this.team = variant === 'rebel' ? 'rebel' : 'empire';
+      const m = SW.Models.createTransport(variant);
+      this.obj = new THREE.Group();
+      this.model = m.group;
+      this.obj.add(this.model);
+      this.engines = m.engines;
+      this.obj.position.copy(pos);
+      this.dest = dest.clone();
+      this.obj.lookAt(this.dest);
+      this.kind = 'transport';
+      this.name = name;
+      this.hp = this.maxHp = opts.hp || 650;
+      this.shield = this.maxShield = opts.shield !== undefined ? opts.shield : 250;
+      this.radius = 16;
+      this.speed = opts.speed || 24;
+      this.velocity = new THREE.Vector3();
+      this.fwd = new THREE.Vector3(0, 0, 1);
+      this.alive = true;
+      this.jumped = false;
+      this.jumping = false;
+      this.jumpT = 0;
+      this.lastHit = -100;
+      this.isPlayer = false;
+      this.shieldFlash = 0;
+      this.shieldMesh = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), SW.fresnelMaterial(this.team === 'rebel' ? 0x4aa8ff : 0x66ff99, 1.6, 1.4));
+      this.shieldMesh.scale.set(15, 13, 38);
+      this.shieldMesh.material.uniforms.opacity.value = 0;
+      this.shieldMesh.visible = false;
+      this.obj.add(this.shieldMesh);
+      game.scene.add(this.obj);
+    }
+
+    get pos() { return this.obj.position; }
+
+    // long hull approximated by five spheres along its axis
+    hitTest(p0, p1, extra = 0) {
+      for (let k = -2; k <= 2; k++) {
+        _cp.copy(this.obj.position).addScaledVector(this.fwd, k * 13);
+        if (SW.util.segmentSphere(p0, p1, _cp, 10 + extra)) return true;
+      }
+      return false;
+    }
+
+    update(dt) {
+      if (!this.alive) return;
+      const g = this.game;
+      if (this.jumping) {
+        this.jumpT += dt;
+        this.obj.scale.z = 1 + this.jumpT * 40;
+        this.obj.position.addScaledVector(this.fwd, (200 + this.jumpT * 5000) * dt);
+        if (this.jumpT > 0.6) {
+          this.alive = false;
+          this.jumped = true;
+          g.scene.remove(this.obj);
+          g.onTransportJumped(this);
+        }
+        return;
+      }
+      this.fwd.set(0, 0, 1).applyQuaternion(this.obj.quaternion);
+      this.velocity.copy(this.fwd).multiplyScalar(this.speed);
+      this.obj.position.addScaledVector(this.velocity, dt);
+      if (g.time - this.lastHit > 5) this.shield = Math.min(this.maxShield, this.shield + this.maxShield * 0.04 * dt);
+      this.shieldFlash = Math.max(0, this.shieldFlash - dt * 2.5);
+      this.shieldMesh.visible = this.shieldFlash > 0.01;
+      this.shieldMesh.material.uniforms.opacity.value = this.shieldFlash;
+      for (const e of this.engines) e.scale.setScalar((e.userData.base || (e.userData.base = e.scale.x)) * (0.9 + Math.random() * 0.2));
+      const hpf = this.hp / this.maxHp;
+      if (hpf < 0.5 && Math.random() < (hpf < 0.25 ? 0.9 : 0.4)) {
+        _cp.copy(this.pos).addScaledVector(this.fwd, rand(-25, 25)).addScaledVector(randomUnit(_t), 6);
+        g.fx.damageSmoke(_cp, _t2.copy(this.velocity).multiplyScalar(0.3), hpf < 0.25);
+      }
+      _t.subVectors(this.dest, this.pos);
+      if (_t.length() < 60 || _t.dot(this.fwd) < 0) {
+        this.jumping = true;
+        g.fx.flashLight(this.pos, 6, 400, 0.6, 0xaaccff);
+        g.sound3D('explosion', this.pos, 0.5);
+      }
+    }
+
+    takeDamage(amount, source, hitPos) {
+      if (!this.alive || this.jumping) return;
+      const g = this.game;
+      this.lastHit = g.time;
+      let shieldHit = false;
+      if (this.shield > 0) {
+        const a = Math.min(this.shield, amount);
+        this.shield -= a; amount -= a; shieldHit = true;
+        this.shieldFlash = 0.8;
+      }
+      if (amount > 0) this.hp -= amount;
+      if (hitPos) g.fx.sparks(hitPos, shieldHit ? 'blue' : null, shieldHit ? 5 : 10, 30);
+      if (source && source.isPlayer) g.stats.hits++;
+      g.onTransportHit(this);
+      if (this.hp <= 0) this.destroy(source);
+    }
+
+    destroy(source) {
+      if (!this.alive) return;
+      this.alive = false;
+      const g = this.game;
+      for (let k = -1; k <= 1; k++) {
+        _cp.copy(this.pos).addScaledVector(this.fwd, k * 22);
+        g.fx.explosion(_cp, 3.2, { debris: 6 });
+      }
+      g.fx.flashLight(this.pos, 10, 800, 1, 0xffa060);
+      g.sound3D('explosion', this.pos, 3);
+      g.scene.remove(this.obj);
+      g.onTransportDestroyed(this, source);
+    }
+
+    dispose() { this.game.scene.remove(this.obj); }
+  }
+
   SW.SPECS = SPECS;
+  SW.Transport = Transport;
   SW.Ship = Ship;
   SW.PlayerControl = PlayerControl;
   SW.Bolts = Bolts;

@@ -154,38 +154,41 @@
     return (cache.solar = t);
   };
 
-  // Equirectangular nebula / milky-way background
-  T.nebulaSky = function () {
+  // Equirectangular nebula / milky-way background, tinted per location
+  T.nebulaSky = function (o = {}) {
+    const key = 'sky' + JSON.stringify(o);
+    if (cache[key]) return cache[key];
+    const seed = o.seed || 11;
+    const c1 = o.c1 || [170, 40, 120], c2 = o.c2 || [60, 40, 190], dustC = o.dust || [150, 140, 170];
+    const bandK = o.band !== undefined ? o.band : 1, nebK = o.neb !== undefined ? o.neb : 1;
     const W = 2048, H = 1024;
     const c = canvas(W, H), g = c.getContext('2d');
     g.fillStyle = '#000003'; g.fillRect(0, 0, W, H);
-    const { fbm } = makeNoise(11);
-    // galactic band + nebula clouds via noise (low res then upscale for speed)
+    const { fbm } = makeNoise(seed);
     const lw = 512, lh = 256;
     const lc = canvas(lw, lh), lg = lc.getContext('2d');
     const img = lg.createImageData(lw, lh);
+    const tilt = ((seed * 37) % 100) / 100 * 0.2 + 0.08;
     for (let y = 0; y < lh; y++) {
       for (let x = 0; x < lw; x++) {
         const u = x / lw, v = y / lh;
-        // tilted galactic band
-        const bandY = 0.5 + Math.sin(u * Math.PI * 2) * 0.16;
-        const band = Math.exp(-Math.pow((v - bandY) / 0.09, 2));
+        const bandY = 0.5 + Math.sin(u * Math.PI * 2 + seed) * tilt;
+        const band = Math.exp(-Math.pow((v - bandY) / 0.09, 2)) * bandK;
         const n1 = fbm(u * 8, v * 4, 6, 8);
         const n2 = fbm(u * 4 + 10, v * 2 + 5, 5, 4);
         const n3 = fbm(u * 16 + 3, v * 8, 4, 16);
         let r = 0, gr = 0, b = 0;
-        // milky way dust
         const dust = band * Math.pow(n1, 1.6) * 1.4;
-        r += dust * 150; gr += dust * 140; b += dust * 170;
-        // dark lanes
+        r += dust * dustC[0]; gr += dust * dustC[1]; b += dust * dustC[2];
         const lane = band * Math.max(0, n3 - 0.5) * 2;
         r -= lane * 90; gr -= lane * 90; b -= lane * 90;
-        // colored nebulae
-        const neb = Math.pow(Math.max(0, n2 - 0.45) * 2.2, 2.2);
-        const hue = fbm(u * 3 + 40, v * 3, 3, 3);
-        r += neb * (hue > 0.5 ? 170 : 60) * n1 * 1.6;
-        gr += neb * 40 * n1;
-        b += neb * (hue > 0.5 ? 120 : 190) * n1 * 1.6;
+        const neb = Math.pow(Math.max(0, n2 - 0.45) * 2.2, 2.2) * nebK;
+        let hue = fbm(u * 3 + 40, v * 3, 3, 3);
+        hue = Math.min(1, Math.max(0, (hue - 0.4) * 5));
+        const k = neb * n1 * 1.6;
+        r += k * (c1[0] * hue + c2[0] * (1 - hue));
+        gr += k * (c1[1] * hue + c2[1] * (1 - hue));
+        b += k * (c1[2] * hue + c2[2] * (1 - hue));
         const i = (y * lw + x) * 4;
         img.data[i] = Math.max(0, Math.min(255, r));
         img.data[i + 1] = Math.max(0, Math.min(255, gr));
@@ -196,24 +199,30 @@
     lg.putImageData(img, 0, 0);
     g.imageSmoothingEnabled = true;
     g.drawImage(lc, 0, 0, W, H);
-    // faint dense star dust
-    const rnd = mulberry(5);
+    const rnd = mulberry(seed + 5);
     for (let i = 0; i < 9000; i++) {
-      const x = rnd() * W, y = rnd() * H;
-      const a = rnd() * 0.5;
-      g.fillStyle = `rgba(255,255,255,${a})`;
-      g.fillRect(x, y, 1, 1);
+      g.fillStyle = `rgba(255,255,255,${rnd() * 0.5})`;
+      g.fillRect(rnd() * W, rnd() * H, 1, 1);
     }
-    return tex(c);
+    return (cache[key] = tex(c));
+  };
+
+  const GAS_PALETTES = {
+    amber: [[196, 160, 120], [150, 105, 70], [220, 196, 160], [120, 80, 55], [205, 170, 130], [170, 130, 95]],
+    cyan: [[170, 215, 225], [130, 185, 205], [205, 232, 238], [110, 165, 190], [185, 222, 232], [150, 200, 215]],
+    purple: [[130, 85, 160], [90, 50, 125], [170, 130, 190], [70, 40, 95], [150, 105, 175], [110, 70, 140]],
+    rust: [[190, 100, 70], [140, 60, 45], [220, 150, 110], [110, 45, 35], [200, 120, 85], [160, 80, 60]],
   };
 
   // Banded gas giant
-  T.gasGiant = function () {
+  T.gasGiant = function (palette = 'amber', seed = 21) {
+    const key = 'gas' + palette + seed;
+    if (cache[key]) return cache[key];
     const W = 1024, H = 512;
     const c = canvas(W, H), g = c.getContext('2d');
-    const { fbm } = makeNoise(21);
+    const { fbm } = makeNoise(seed);
     const img = g.createImageData(W, H);
-    const pal = [[196, 160, 120], [150, 105, 70], [220, 196, 160], [120, 80, 55], [205, 170, 130], [170, 130, 95]];
+    const pal = GAS_PALETTES[palette] || GAS_PALETTES.amber;
     for (let y = 0; y < H; y++) {
       for (let x = 0; x < W; x++) {
         const u = x / W, v = y / H;
@@ -232,15 +241,147 @@
       }
     }
     g.putImageData(img, 0, 0);
-    // great storm
-    const grd = g.createRadialGradient(700, 330, 0, 700, 330, 40);
-    grd.addColorStop(0, 'rgba(170,70,40,0.9)'); grd.addColorStop(1, 'rgba(170,70,40,0)');
+    const sc = pal[3];
+    const grd = g.createRadialGradient(700, 660, 0, 700, 660, 60);
+    grd.addColorStop(0, `rgba(${sc[0] + 40},${sc[1]},${sc[2]},0.9)`); grd.addColorStop(1, 'rgba(0,0,0,0)');
     g.save(); g.scale(1, 0.5); g.fillStyle = grd; g.beginPath(); g.arc(700, 660, 60, 0, Math.PI * 2); g.fill(); g.restore();
-    return tex(c);
+    return (cache[key] = tex(c));
+  };
+
+  // Rocky / terrestrial worlds. Returns { map, emissive }
+  const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const sat = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
+  T.planet = function (type, seed = 1) {
+    const key = 'pl' + type + seed;
+    if (cache[key]) return cache[key];
+    const W = 1024, H = 512;
+    const c = canvas(W, H), g = c.getContext('2d');
+    const img = g.createImageData(W, H);
+    const needE = type === 'lava' || type === 'city';
+    let ec, eg, eimg;
+    if (needE) { ec = canvas(W, H); eg = ec.getContext('2d'); eimg = eg.createImageData(W, H); }
+    const { fbm } = makeNoise(seed);
+    const rnd = mulberry(seed * 7 + 1);
+    for (let y = 0; y < H; y++) {
+      const v = y / H;
+      const polar = Math.abs(v - 0.5) * 2;
+      for (let x = 0; x < W; x++) {
+        const u = x / W;
+        const h = fbm(u * 6, v * 3, 6, 6);
+        const d = fbm(u * 24 + 7, v * 12 + 3, 4, 24);
+        const ridge = 1 - Math.abs(2 * d - 1);
+        let col, e = null;
+        switch (type) {
+          case 'ocean': {
+            if (h < 0.52) col = mix([8, 30, 80], [30, 105, 165], sat(h / 0.52) ** 3);
+            else {
+              const t = sat((h - 0.52) / 0.2);
+              col = t < 0.08 ? [196, 182, 130] : t < 0.6 ? mix([45, 110, 45], [95, 120, 60], t) : mix([110, 95, 70], [235, 235, 240], sat((t - 0.6) / 0.4));
+            }
+            if (polar > 0.84 + d * 0.06) col = [235, 240, 248];
+            break;
+          }
+          case 'forest': {
+            if (h < 0.4) col = mix([15, 45, 70], [30, 80, 100], sat(h / 0.4));
+            else col = mix(mix([28, 70, 32], [70, 115, 45], d), [100, 85, 60], sat((h - 0.62) * 5));
+            if (polar > 0.9) col = [225, 232, 238];
+            break;
+          }
+          case 'ice': {
+            col = mix([150, 185, 220], [238, 244, 250], sat(h * 1.4 - 0.2));
+            if (ridge > 0.93) col = mix(col, [60, 100, 150], 0.7);
+            break;
+          }
+          case 'desert': {
+            col = mix([168, 108, 58], [222, 172, 112], sat(h * 1.6 - 0.3));
+            const dune = Math.sin(u * 700 + d * 60 + v * 90) * 0.06;
+            col = col.map((q) => q * (1 + dune));
+            if (h > 0.62) col = mix(col, [130, 80, 50], sat((h - 0.62) * 6));
+            if (polar > 0.93) col = mix(col, [230, 220, 200], 0.6);
+            break;
+          }
+          case 'lava': {
+            col = mix([28, 24, 22], [78, 66, 58], d);
+            const crack = ridge > 0.9 ? sat((ridge - 0.9) * 12) : 0;
+            const lake = h < 0.36 ? sat((0.36 - h) * 12) : 0;
+            const heat = Math.max(crack, lake);
+            if (heat > 0) {
+              const lc = mix([255, 70, 10], [255, 190, 60], heat);
+              col = mix(col, lc, heat);
+              e = lc.map((q) => q * heat);
+            }
+            break;
+          }
+          case 'toxic': {
+            col = mix([85, 115, 30], [185, 200, 70], sat(h * 1.5 - 0.25));
+            const swirl = Math.sin(v * 40 + h * 20) * 0.5 + 0.5;
+            col = mix(col, [210, 215, 140], swirl * 0.25);
+            break;
+          }
+          case 'dead': {
+            col = mix([70, 62, 56], [150, 138, 122], sat(h * 1.4 - 0.2));
+            col = col.map((q) => q * (0.85 + d * 0.3));
+            break;
+          }
+          case 'city': {
+            const land = h > 0.47;
+            col = land ? mix([55, 58, 66], [95, 98, 108], d) : [14, 22, 40];
+            if (land) {
+              const grid = (Math.floor(u * 400) % 4 === 0 || Math.floor(v * 200) % 4 === 0) ? 1 : 0;
+              if (rnd() < 0.22 + grid * 0.35) {
+                const b = 0.5 + rnd() * 0.5;
+                e = [255 * b, 200 * b, 120 * b];
+              }
+            }
+            break;
+          }
+          default: col = [128, 128, 128];
+        }
+        const o = (y * W + x) * 4;
+        img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = 255;
+        if (needE) {
+          eimg.data[o] = e ? e[0] : 0; eimg.data[o + 1] = e ? e[1] : 0; eimg.data[o + 2] = e ? e[2] : 0; eimg.data[o + 3] = 255;
+        }
+      }
+    }
+    g.putImageData(img, 0, 0);
+    if (type === 'dead') { // craters
+      for (let i = 0; i < 140; i++) {
+        const x = rnd() * W, y = H * 0.1 + rnd() * H * 0.8, r = 3 + Math.pow(rnd(), 3) * 40;
+        g.save(); g.translate(x, y); g.scale(1.6, 1);
+        g.fillStyle = 'rgba(30,26,22,0.35)'; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+        g.strokeStyle = 'rgba(200,190,170,0.25)'; g.lineWidth = Math.max(1, r * 0.15); g.beginPath(); g.arc(-r * 0.1, -r * 0.1, r, Math.PI, Math.PI * 1.8); g.stroke();
+        g.restore();
+      }
+    }
+    const out = { map: tex(c) };
+    if (needE) { eg.putImageData(eimg, 0, 0); out.emissive = tex(ec); }
+    return (cache[key] = out);
+  };
+
+  T.clouds = function (seed = 3) {
+    const key = 'cl' + seed;
+    if (cache[key]) return cache[key];
+    const W = 1024, H = 512;
+    const c = canvas(W, H), g = c.getContext('2d');
+    const img = g.createImageData(W, H);
+    const { fbm } = makeNoise(seed + 100);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const u = x / W, v = y / H;
+        const n = fbm(u * 8 + fbm(u * 4, v * 2, 3, 4) * 0.8, v * 4, 5, 8);
+        const a = sat((n - 0.5) * 4) * 230;
+        const o = (y * W + x) * 4;
+        img.data[o] = img.data[o + 1] = img.data[o + 2] = 255; img.data[o + 3] = a;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return (cache[key] = tex(c));
   };
 
   // Planetary ring (u = radial)
   T.ring = function () {
+    if (cache.ring) return cache.ring;
     const W = 512, c = canvas(W, 4), g = c.getContext('2d');
     const rnd = mulberry(9);
     for (let x = 0; x < W; x++) {
@@ -249,11 +390,13 @@
       g.fillStyle = `rgba(${v},${v * 0.9 | 0},${v * 0.8 | 0},${a})`;
       g.fillRect(x, 0, 1, 4);
     }
-    return tex(c);
+    return (cache.ring = tex(c));
   };
 
-  // Battle station surface
-  T.battleStation = function () {
+  // Battle station surface (optionally without the painted dish)
+  T.battleStation = function (withDish = true) {
+    const key = 'bs' + withDish;
+    if (cache[key]) return cache[key];
     const W = 1024, H = 512;
     const c = canvas(W, H), g = c.getContext('2d');
     const rnd = mulberry(33);
@@ -265,27 +408,40 @@
     }
     g.strokeStyle = 'rgba(40,40,45,0.35)';
     for (let y = 0; y < H; y += 16) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
-    // equatorial trench
     g.fillStyle = '#26282c'; g.fillRect(0, H / 2 - 4, W, 8);
     g.fillStyle = 'rgba(255,220,160,0.6)';
     for (let x = 0; x < W; x += 5) if (rnd() < 0.3) g.fillRect(x, H / 2 - 1, 2, 2);
-    // city lights
     for (let i = 0; i < 700; i++) {
       g.fillStyle = `rgba(255,${200 + rnd() * 55 | 0},150,${rnd() * 0.5})`;
       g.fillRect(rnd() * W, rnd() * H, 1, 1);
     }
-    // superlaser dish (drawn wider to compensate equirect stretch)
-    const cx = 330, cy = 150, r = 70;
-    g.save(); g.translate(cx, cy); g.scale(1.25, 1);
-    const grd = g.createRadialGradient(-12, 10, 5, 0, 0, r);
-    grd.addColorStop(0, '#3b3e44'); grd.addColorStop(0.7, '#62666c'); grd.addColorStop(1, '#8a8e94');
-    g.fillStyle = grd; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = 'rgba(30,30,34,0.6)'; g.lineWidth = 2;
-    for (let k = 1; k < 5; k++) { g.beginPath(); g.arc(0, 0, r * k / 5, 0, Math.PI * 2); g.stroke(); }
-    for (let k = 0; k < 8; k++) { g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(k * Math.PI / 4) * r, Math.sin(k * Math.PI / 4) * r); g.stroke(); }
-    g.fillStyle = '#1e2024'; g.beginPath(); g.arc(0, 0, 8, 0, Math.PI * 2); g.fill();
-    g.restore();
-    return tex(c);
+    if (withDish) {
+      const cx = 330, cy = 150, r = 70;
+      g.save(); g.translate(cx, cy); g.scale(1.25, 1);
+      const grd = g.createRadialGradient(-12, 10, 5, 0, 0, r);
+      grd.addColorStop(0, '#3b3e44'); grd.addColorStop(0.7, '#62666c'); grd.addColorStop(1, '#8a8e94');
+      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, r, 0, Math.PI * 2); g.fill();
+      g.strokeStyle = 'rgba(30,30,34,0.6)'; g.lineWidth = 2;
+      for (let k = 1; k < 5; k++) { g.beginPath(); g.arc(0, 0, r * k / 5, 0, Math.PI * 2); g.stroke(); }
+      for (let k = 0; k < 8; k++) { g.beginPath(); g.moveTo(0, 0); g.lineTo(Math.cos(k * Math.PI / 4) * r, Math.sin(k * Math.PI / 4) * r); g.stroke(); }
+      g.fillStyle = '#1e2024'; g.beginPath(); g.arc(0, 0, 8, 0, Math.PI * 2); g.fill();
+      g.restore();
+    }
+    return (cache[key] = tex(c));
+  };
+
+  // Superlaser dish texture for a sphere cap: v = radial (1 at centre), u = around
+  T.dish = function () {
+    if (cache.dish) return cache.dish;
+    const W = 512, H = 256;
+    const c = canvas(W, H), g = c.getContext('2d');
+    const grd = g.createLinearGradient(0, 0, 0, H);
+    grd.addColorStop(0, '#1d2024'); grd.addColorStop(0.5, '#4a4e55'); grd.addColorStop(1, '#8b9097');
+    g.fillStyle = grd; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(15,15,18,0.7)'; g.lineWidth = 2;
+    for (let y = 16; y < H; y += 22) { g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    for (let x = 0; x < W; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    return (cache.dish = tex(c));
   };
 
   T.makeNoise = makeNoise;

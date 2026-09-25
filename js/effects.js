@@ -128,6 +128,7 @@
     trail: C(1.2, 0.6, 0.4), trailEnd: C(0.1, 0.05, 0.05),
     torp: C(5, 3, 1.5), torpEnd: C(1.5, 0.3, 0.1),
     white: C(4, 4, 4),
+    rock: C(0.35, 0.3, 0.26),
   };
 
   class Effects {
@@ -195,7 +196,7 @@
       const nDeb = opts.debris !== undefined ? opts.debris : Math.min(14, 5 + scale * 2);
       for (let i = 0; i < nDeb; i++) this.spawnDebris(pos, scale, base);
       // shockwave ring
-      this.spawnRing(pos, scale * 26, 0.7, opts.ringColor);
+      this.spawnRing(pos, scale * 26, opts.ringDur || 0.7, opts.ringColor, opts.ringQuat);
       this.flashLight(pos, 4 * Math.min(scale, 4), 120 * scale, 0.5 + scale * 0.1, 0xffa060);
     }
 
@@ -217,7 +218,22 @@
       d.burn = Math.random() < 0.6;
     }
 
-    spawnRing(pos, size, dur, color) {
+    // shattering a small asteroid: dusty rock burst with tumbling chunks
+    rockBurst(pos, size) {
+      const k = Math.sqrt(size / 8);
+      for (let i = 0; i < 18; i++) {
+        randomUnit(_v).multiplyScalar(rand(4, 20) * k);
+        this.smoke.emit(pos, _v, rand(1.2, 2.4), size * 0.3, size * 1.1, COL.rock, COL.smokeEnd, 0.6, 1.2);
+      }
+      for (let i = 0; i < 16; i++) {
+        randomUnit(_v).multiplyScalar(rand(30, 90));
+        this.fire.emit(pos, _v, rand(0.3, 0.7), 0.7, 0.1, COL.spark, COL.sparkEnd, 1, 1);
+      }
+      for (let i = 0; i < Math.min(8, 3 + size / 3); i++) this.spawnDebris(pos, size / 5, ZERO);
+      this.flashLight(pos, 2, 80, 0.3, 0xffcc99);
+    }
+
+    spawnRing(pos, size, dur, color, quat) {
       let r = this.rings.find((x) => !x.active);
       if (!r) {
         const m = new THREE.Mesh(this.ringGeo, new THREE.MeshBasicMaterial({
@@ -229,8 +245,11 @@
       }
       r.active = true; r.mesh.visible = true;
       r.mesh.position.copy(pos);
-      r.mesh.quaternion.copy(this.camera.quaternion);
-      r.mesh.rotateX(rand(-0.9, 0.9)); r.mesh.rotateY(rand(-0.9, 0.9));
+      if (quat) r.mesh.quaternion.copy(quat);
+      else {
+        r.mesh.quaternion.copy(this.camera.quaternion);
+        r.mesh.rotateX(rand(-0.9, 0.9)); r.mesh.rotateY(rand(-0.9, 0.9));
+      }
       r.size = size; r.t = 0; r.dur = dur;
       r.mesh.material.color.copy(color || C(2.5, 1.6, 1.0));
       r.mesh.scale.setScalar(0.01);

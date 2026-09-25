@@ -52,6 +52,12 @@
     <div id="hud-lock"></div>
   </div>
 
+  <div id="hud-boss" class="hidden">
+    <div id="hud-boss-name">BOSS</div>
+    <div class="bar boss"><div id="bar-boss" class="fill bossfill"></div></div>
+  </div>
+  <div id="hud-timer" class="hidden"><span id="hud-timer-lbl">TIME LEFT</span> <span id="hud-timer-val">0:00</span></div>
+
   <div id="hud-center-msg"></div>
   <div id="hud-sub-msg"></div>
 </div>
@@ -130,6 +136,7 @@
     <div class="briefing-header">REBEL ALLIANCE • MISSION BRIEFING</div>
     <h1 id="brief-title"></h1>
     <h3 id="brief-sub"></h3>
+    <div class="brief-tags"><span id="brief-loc"></span><span id="brief-boss" class="hidden">☠ BOSS BATTLE</span></div>
     <p id="brief-text"></p>
     <div class="brief-obj-h">OBJECTIVES</div>
     <ul id="brief-objectives"></ul>

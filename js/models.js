@@ -400,6 +400,129 @@
     return { group: g, head };
   }
 
+  /* ======================= TIE ADVANCED (boss ace) ======================= */
+  function createTIEAdvanced() {
+    const m = mats();
+    const g = new THREE.Group();
+    tieBall(m, g);
+    // elongated rear fuselage
+    const rear = mesh(new THREE.BoxGeometry(1.3, 1.15, 2.4), m.tieHull, 0, 0, -1.5);
+    g.add(rear);
+    g.add(mesh(new THREE.BoxGeometry(1.0, 0.8, 0.2), m.xwDark, 0, 0, -2.75));
+    const engines = [];
+    [-0.3, 0.3].forEach((x) => {
+      const e = new THREE.Object3D(); e.position.set(x, 0, -2.95); g.add(e);
+      const s = glowSprite(hdr(3.4, 0.8, 0.4), 1.1);
+      e.add(s); e.userData.glow = s;
+      engines.push(e);
+    });
+    [-1, 1].forEach((sx) => {
+      pylon(m, g, sx, 1.3);
+      const w = new THREE.Group();
+      w.position.x = sx * 2.35;
+      g.add(w);
+      w.add(mesh(new THREE.BoxGeometry(0.12, 2.6, 3.6), m.tiePanel));
+      w.add(mesh(new THREE.BoxGeometry(0.16, 2.7, 0.12), m.tieFrame, 0, 0, 1.8));
+      w.add(mesh(new THREE.BoxGeometry(0.16, 2.7, 0.12), m.tieFrame, 0, 0, -1.8));
+      [1, -1].forEach((sy) => {
+        const pivot = new THREE.Group();
+        pivot.position.y = sy * 1.3;
+        pivot.rotation.z = sx * sy * 0.62;
+        w.add(pivot);
+        const p = mesh(new THREE.BoxGeometry(0.12, 2.0, 3.2), m.tiePanel, 0, sy * 1.0, -0.1);
+        pivot.add(p);
+        pivot.add(mesh(new THREE.BoxGeometry(0.16, 0.12, 3.3), m.tieFrame, 0, sy * 2.0, -0.1));
+      });
+    });
+    // dark red command stripe marks the ace
+    g.add(mesh(new THREE.BoxGeometry(1.35, 0.08, 1.8), m.red, 0, 0.58, -1.4));
+    const cannons = [new THREE.Object3D(), new THREE.Object3D()];
+    cannons[0].position.set(-0.3, -0.6, 1.2); cannons[1].position.set(0.3, -0.6, 1.2);
+    cannons.forEach((c) => g.add(c));
+    return { group: g, cannons, engines, radius: 3.8 };
+  }
+
+  /* ======================= TRANSPORTS / FREIGHTERS ======================= */
+  function createTransport(variant) {
+    const m = mats();
+    const g = new THREE.Group();
+    const engines = [];
+    const eng = (x, y, z, r, col) => {
+      const dg = new THREE.CircleGeometry(r, 16); dg.rotateY(Math.PI);
+      g.add(mesh(dg, new THREE.MeshBasicMaterial({ color: col, toneMapped: false }), x, y, z));
+      const s = glowSprite(col, r * 2.8);
+      s.position.set(x, y, z - 1.5);
+      g.add(s);
+      engines.push(s);
+    };
+    if (variant === 'rebel') {
+      // medium transport: long spine under an armoured clamshell hull
+      g.add(mesh(new THREE.BoxGeometry(4, 4, 56), m.xwHull));
+      const shellGeo = new THREE.CylinderGeometry(9, 9, 46, 20, 1, true, Math.PI / 2, Math.PI);
+      shellGeo.rotateX(Math.PI / 2);
+      const shellMat = new THREE.MeshStandardMaterial({ color: 0xc8c2b4, map: m.xwHull.map, roughness: 0.6, metalness: 0.3, side: THREE.DoubleSide });
+      g.add(mesh(shellGeo, shellMat, 0, 1, -2));
+      for (let i = 0; i < 5; i++) g.add(mesh(new THREE.BoxGeometry(10, 4.5, 6.5), i % 2 ? m.xwDark : m.metal, 0, 1.8, -18 + i * 8.5));
+      g.add(mesh(new THREE.BoxGeometry(6, 4, 9), m.xwHull, 0, 2.5, 30));
+      g.add(mesh(new THREE.BoxGeometry(5, 1.2, 1), m.glass, 0, 3.6, 34.4));
+      g.add(mesh(new THREE.BoxGeometry(12, 9, 7), m.xwHull, 0, 1, -28));
+      g.add(mesh(new THREE.BoxGeometry(0.3, 3, 20), m.red, 9.1, 1, -2));
+      g.add(mesh(new THREE.BoxGeometry(0.3, 3, 20), m.red, -9.1, 1, -2));
+      const c = new THREE.Color(1.1, 1.7, 3.2);
+      [[-3.5, 3], [3.5, 3], [-3.5, -1.5], [3.5, -1.5]].forEach(([x, y]) => eng(x, y, -31.6, 1.6, c));
+    } else {
+      // Imperial bulk freighter
+      const greyMat = m.tieHull;
+      g.add(mesh(new THREE.BoxGeometry(16, 10, 64), greyMat));
+      g.add(mesh(new THREE.BoxGeometry(12, 4, 40), m.xwDark, 0, 7, -4));
+      for (let i = 0; i < 4; i++) g.add(mesh(new THREE.BoxGeometry(14, 5, 8), i % 2 ? m.metal : greyMat, 0, 11, -18 + i * 10));
+      g.add(mesh(new THREE.BoxGeometry(8, 9, 10), greyMat, 0, 13, -24));
+      g.add(mesh(new THREE.BoxGeometry(7, 1.2, 0.4), m.sdLight, 0, 15, -18.8));
+      const nose = new THREE.CylinderGeometry(3, 8, 12, 4); nose.rotateY(Math.PI / 4); nose.rotateX(Math.PI / 2);
+      g.add(mesh(nose, greyMat, 0, 0, 38));
+      const c = new THREE.Color(1.3, 1.9, 3.5);
+      [[-4.5, 0], [4.5, 0], [0, 0]].forEach(([x, y]) => eng(x, y, -32.2, 2.6, c));
+    }
+    return { group: g, engines, radius: 12, length: 64 };
+  }
+
+  /* ======================= IMPERIAL RELAY OUTPOST ======================= */
+  function createRelay() {
+    const m = mats();
+    const g = new THREE.Group();
+    g.add(mesh(new THREE.CylinderGeometry(34, 30, 8, 6), m.sdMid));
+    g.add(mesh(new THREE.CylinderGeometry(29, 5, 28, 6), m.sdDark, 0, -18, 0));
+    g.add(mesh(new THREE.BoxGeometry(11, 42, 11), m.sdMid, 0, 25, 0));
+    g.add(mesh(new THREE.BoxGeometry(18, 6, 18), m.sdDark, 0, 10, 0));
+    const core = new THREE.Group();
+    core.position.set(0, 50, 0);
+    const dish = mesh(new THREE.SphereGeometry(13, 24, 12, 0, Math.PI * 2, 0, 1.1), new THREE.MeshStandardMaterial({ color: 0x9da1a8, roughness: 0.5, metalness: 0.6, side: THREE.DoubleSide }));
+    dish.rotation.x = -1.2;
+    core.add(dish);
+    core.add(mesh(new THREE.CylinderGeometry(0.6, 0.6, 16, 6), m.xwDark, 0, 4, 4));
+    const beacon = glowSprite(new THREE.Color(4, 0.5, 0.3), 7);
+    beacon.position.set(0, 13, 4);
+    core.add(beacon);
+    g.add(core);
+    const lights = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const s = glowSprite(new THREE.Color(3.5, 0.4, 0.2), 3);
+      s.position.set(Math.cos(a) * 33, 4.5, Math.sin(a) * 33);
+      g.add(s); lights.push(s);
+    }
+    const turretSpots = [0, 1, 2].map((i) => {
+      const a = (i / 3) * Math.PI * 2 + 0.5;
+      return new THREE.Vector3(Math.cos(a) * 22, 4, Math.sin(a) * 22);
+    });
+    const boxes = [
+      { c: new THREE.Vector3(0, 0, 0), h: new THREE.Vector3(30, 4, 30) },
+      { c: new THREE.Vector3(0, -16, 0), h: new THREE.Vector3(18, 12, 18) },
+      { c: new THREE.Vector3(0, 25, 0), h: new THREE.Vector3(6, 21, 6) },
+    ];
+    return { group: g, core, corePos: new THREE.Vector3(0, 52, 0), turretSpots, boxes, lights, beacon };
+  }
+
   /* ======================= ASTEROID ======================= */
   function createAsteroid(seed) {
     const m = mats();
@@ -418,5 +541,5 @@
     return new THREE.Mesh(geo, m.rock);
   }
 
-  SW.Models = { createXWing, createTIE, createInterceptor, createStarDestroyer, createTurret, createAsteroid, glowSprite, mats, SD, sdTop };
+  SW.Models = { createXWing, createTIE, createInterceptor, createTIEAdvanced, createTransport, createRelay, createStarDestroyer, createTurret, createAsteroid, glowSprite, mats, SD, sdTop };
 })();

@@ -19,6 +19,8 @@
         speed: $('hud-speed-val'),
         tName: $('hud-target-name'), tDist: $('hud-target-dist'), tBar: $('bar-target'), torps: $('hud-torps-val'), lock: $('hud-lock'),
         center: $('hud-center-msg'), sub: $('hud-sub-msg'), flash: $('damage-flash'),
+        boss: $('hud-boss'), bossName: $('hud-boss-name'), bossBar: $('bar-boss'),
+        timer: $('hud-timer'), timerLbl: $('hud-timer-lbl'), timerVal: $('hud-timer-val'),
       };
       this.centerTimer = 0; this.subTimer = 0; this.flashV = 0; this.whiteV = 0;
       this.slowTimer = 0;
@@ -96,6 +98,18 @@
       this.slowTimer -= dt;
       if (this.slowTimer <= 0 && p && pc) {
         this.slowTimer = 0.1;
+        // boss health bar
+        const b = g.bossInfo();
+        e.boss.classList.toggle('hidden', !b);
+        if (b) { e.bossName.textContent = b.name; e.bossBar.style.width = Math.max(0, b.ratio * 100) + '%'; e.bossBar.classList.toggle('shielded', !!b.shielded); }
+        // mission clock
+        const tm = g.timerInfo();
+        e.timer.classList.toggle('hidden', !tm);
+        if (tm) {
+          e.timerLbl.textContent = tm.label;
+          e.timerVal.textContent = SW.util.fmtTime(Math.max(0, tm.secs));
+          e.timer.classList.toggle('urgent', !!tm.urgent);
+        }
         e.score.textContent = g.score.toLocaleString();
         e.kills.textContent = g.stats.kills;
         e.time.textContent = SW.util.fmtTime(g.missionTime);
@@ -151,21 +165,36 @@
         else col = 'rgba(255,77,58,0.9)';
         if (isT) col = '#ffd84a';
         this.bracket(c, s.x, s.y, size, col, isT ? 2.2 : 1.3);
-        if (o.team === 'rebel' && o !== p && o.name) {
+        if ((o.team === 'rebel' || o.kind === 'transport') && o !== p && o.name) {
           c.fillStyle = col; c.fillText(o.name, s.x + size + 4, s.y - size + 8);
         } else if (o.kind === 'subsystem' && o.type !== 'turret' && !isT && d < 450) {
           c.fillStyle = col; c.fillText(o.name, s.x + size + 4, s.y - size + 8);
         }
       }
-      // capital ship label
-      if (g.capital && (g.capital.state === 'active' || g.capital.state === 'dying')) {
-        const s = this.project(g.capital.group.position, camera);
+      // capital ship / station / outpost labels
+      for (const b of g.bigs) {
+        if (b.state === 'hidden' || b.state === 'dead' || b.destroyed || b.attract) continue;
+        if (b.group.position.distanceTo(p.pos) > 4000) continue;
+        const s = this.project(b.group.position, camera);
         if (!s.behind) {
           c.fillStyle = 'rgba(255,90,70,0.8)';
           c.font = '13px Orbitron, sans-serif';
-          c.fillText('◢ ' + g.capital.name, s.x - 110, s.y + 60);
+          c.fillText('◢ ' + b.name, s.x - 110, s.y + (b.kind === 'outpost' ? 40 : 60));
           c.font = '12px "Share Tech Mono", monospace';
         }
+      }
+      // navigation beacon
+      if (g.waypoint) {
+        const wp = g.waypoint.pos;
+        const s = this.project(wp, camera);
+        const d = wp.distanceTo(p.pos);
+        if (!s.behind && s.x > 0 && s.x < this.w && s.y > 0 && s.y < this.h) {
+          const r = 12 + Math.sin(g.time * 5) * 2;
+          c.strokeStyle = '#5ff0ff'; c.lineWidth = 2;
+          c.beginPath(); c.moveTo(s.x, s.y - r); c.lineTo(s.x + r, s.y); c.lineTo(s.x, s.y + r); c.lineTo(s.x - r, s.y); c.closePath(); c.stroke();
+          c.fillStyle = '#5ff0ff';
+          c.fillText('BEACON ' + Math.round(d) + 'm', s.x + r + 6, s.y + 4);
+        } else this.edgeArrow(c, wp, camera, '#5ff0ff');
       }
 
       // target details, lead indicator, lock diamond, off-screen arrow
@@ -204,7 +233,7 @@
             c.restore();
           }
         } else {
-          this.edgeArrow(c, T.pos, camera);
+          this.edgeArrow(c, T.pos, camera, '#ffd84a');
         }
       }
 
@@ -223,7 +252,7 @@
       c.stroke();
     }
 
-    edgeArrow(c, pos, camera) {
+    edgeArrow(c, pos, camera, color) {
       // direction to target in camera space
       _v.copy(pos).applyMatrix4(camera.matrixWorldInverse);
       let ang = Math.atan2(-_v.y, _v.x);
@@ -232,7 +261,7 @@
       const x = cx + Math.cos(ang) * r, y = cy + Math.sin(ang) * r;
       c.save();
       c.translate(x, y); c.rotate(ang);
-      c.fillStyle = '#ffd84a';
+      c.fillStyle = color || '#ffd84a';
       c.beginPath(); c.moveTo(16, 0); c.lineTo(-6, -10); c.lineTo(-1, 0); c.lineTo(-6, 10); c.closePath(); c.fill();
       c.restore();
     }
@@ -305,11 +334,19 @@
         c.globalAlpha = d > range ? 0.45 : 1;
         if (shape === 'tri') {
           c.beginPath(); c.moveTo(px, py - size); c.lineTo(px + size, py + size); c.lineTo(px - size, py + size); c.closePath(); c.fill();
+        } else if (shape === 'sq') c.fillRect(px - size, py - size, size * 2, size * 2);
+        else if (shape === 'diamond') {
+          c.beginPath(); c.moveTo(px, py - size); c.lineTo(px + size, py); c.lineTo(px, py + size); c.lineTo(px - size, py); c.closePath(); c.fill();
         } else if (above) c.fillRect(px - size, py - size, size * 2, size * 2);
         else { c.beginPath(); c.arc(px, py, size, 0, Math.PI * 2); c.fill(); }
         c.globalAlpha = 1;
       };
-      if (g.capital && (g.capital.state === 'active' || g.capital.state === 'dying')) plot(g.capital.group.position, '#ff7a5a', 7, 'tri');
+      for (const b of g.bigs) {
+        if (b.state === 'hidden' || b.state === 'dead') continue;
+        plot(b.group.position, b.destroyed ? '#806060' : '#ff7a5a', b.kind === 'station' ? 9 : 7, b.radarShape === 'tri' ? 'tri' : 'sq');
+      }
+      for (const t of g.transports) if (t.alive) plot(t.pos, t.team === 'rebel' ? '#8fd0ff' : '#ffa060', 4.5, 'sq');
+      if (g.waypoint) plot(g.waypoint.pos, '#5ff0ff', 5, 'diamond');
       for (const s of g.ships) {
         if (!s.alive || s === p) continue;
         plot(s.pos, s.team === 'rebel' ? '#5ab0ff' : '#ff4d3a', 2.5);

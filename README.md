@@ -32,14 +32,31 @@ Click the game screen to lock the mouse for steering. Press **Esc** or **P** to 
 
 ## Missions
 
-1. **Operation First Light**: destroy a TIE fighter patrol.
-2. **Operation Iron Veil**: break through a screen of TIE interceptors.
-3. **Operation Shattered Crown**: a Star Destroyer drops out of hyperspace. Destroy both shield generator domes, then the command bridge.
-4. **Endless: Last Stand**: survive as many waves as you can. Unlocks after mission 3.
+The campaign has 13 missions, each at a different location, plus an endless mode. Missions unlock one by one as you win them.
+
+| # | Mission | Location | Type |
+|---|---|---|---|
+| 1 | Operation First Light | Kessra Belt: ringed gas giant | Dogfight |
+| 2 | Operation Iron Veil | Hothar: frozen world | Dogfight against TIE interceptors |
+| 3 | Operation Shattered Crown | Yavara: jungle world | Destroy a Star Destroyer |
+| 4 | Operation Rockfall | Moraxa: shattered world | **Asteroid escape**: race a timer through a dense debris field to a beacon |
+| 5 | Operation Lifeline | Aquilon: ocean world | **Escort**: protect 3 transports until they jump (2 must survive) |
+| 6 | Operation Emberfall | Vulkar: volcanic world | **Strike**: destroy 3 guarded relay outposts |
+| 7 | ☠ **Boss: The Black Wing** | Tashar: desert world with two suns | **Ace duel** with a shielded TIE Advanced that calls in reinforcements |
+| 8 | Operation White Silence | Glacius: ringed ice giant | **Asteroid escape** through a collapsing ice ring while interceptors chase you |
+| 9 | Operation Convoy Breaker | Toxara: poisoned world | **Intercept**: destroy Imperial freighters before they jump |
+| 10 | ☠ **Boss: The Tyrant** | Crimson Void: red giant star | A Dreadnought with 4 shield generators and extra turrets |
+| 11 | Operation Hold the Line | Sylvara: forest moon | **Survival**: hold out for 3 minutes against growing waves |
+| 12 | Operation Nightshade | The Veiled Nebula | Dogfight in thick fog, where you have to rely on radar |
+| 13 | ☠ **Final Boss: Heart of the Empire** | Imperialis: city-covered planet | Destroy 4 superlaser emitters, then hit the exhaust port with **proton torpedoes only**, before the countdown ends |
+| 14 | Endless: Last Stand | Random location | Survive as many waves as you can for a high score |
 
 ## Features
 
-- All ships are built in code: an X-wing with an astromech droid, TIE fighters, TIE interceptors, and a Star Destroyer with turbolaser turrets, a command tower and engine glow.
+- 13 locations. Each has its own planet type (ice, ocean, lava, desert, jungle, poisoned, shattered, city-covered or gas giant), clouds, rings, moons, nebula colors and suns. One is a binary star system and one is filled with fog.
+- Asteroid fields where rocks drift and tumble, debris flies at you, and small rocks can be shot apart.
+- Boss health bar, mission countdown timers, a beacon marker on the HUD, and radar that shows transports and large targets.
+- All ships are built in code: an X-wing with an astromech droid, TIE fighters, TIE interceptors, a TIE Advanced, Rebel transports, Imperial freighters, relay outposts, and a Star Destroyer with turbolaser turrets, a command tower and engine glow. There is also a Dreadnought and a battle station with a superlaser dish.
 - Opening text crawl, a hyperspace jump at the start of each mission, and the Star Destroyer's hyperspace arrival.
 - Wingmen fight on their own, with radio chatter. Enemy AI leads its shots, breaks away and dodges.
 - Bloom lighting, particle explosions, burning debris, shockwaves, shield flashes and camera shake.
